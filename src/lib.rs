@@ -192,16 +192,19 @@ impl BubbleBath<'_> {
             }
         }
 
-        let unclosed_tag_idx = {
-            let mut unclosed_tags = unclosed_tags.borrow_mut();
-            unclosed_tags.insert(tag_name)
-        };
+        // Manually balance the tags if they aren't self-closing
+        if !element.is_self_closing() {
+            let unclosed_tag_idx = {
+                let mut unclosed_tags = unclosed_tags.borrow_mut();
+                unclosed_tags.insert(tag_name)
+            };
 
-        if let Some(end_tag_handlers) = element.end_tag_handlers() {
-            end_tag_handlers.push(Box::new(move |_end_tag| {
-                unclosed_tags.borrow_mut().remove(unclosed_tag_idx);
-                Ok(())
-            }));
+            if let Some(end_tag_handlers) = element.end_tag_handlers() {
+                end_tag_handlers.push(Box::new(move |_end_tag| {
+                    unclosed_tags.borrow_mut().remove(unclosed_tag_idx);
+                    Ok(())
+                }));
+            }
         }
 
         Ok(())
