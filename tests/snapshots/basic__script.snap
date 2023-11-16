@@ -1,0 +1,9 @@
+---
+source: tests/basic.rs
+expression: "bubble_bath::clean(r#\"\n            <script>alert('XSS!');</script>\n            <p>Hello world!</p>\n            <font size=\"20\">LARGE</font>\n        \"#).unwrap()"
+---
+
+            
+            <p>Hello world!</p>
+            LARGE
+        

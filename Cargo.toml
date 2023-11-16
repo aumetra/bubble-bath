@@ -1,0 +1,30 @@
+[package]
+name = "bubble-bath"
+version = "0.1.0"
+edition = "2021"
+description = "Speedy HTML sanitizer"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[[bench]]
+name = "ammonia_intro"
+harness = false
+
+[[bench]]
+name = "rustlang_website"
+harness = false
+
+[[bench]]
+name = "wikipedia"
+harness = false
+
+[dependencies]
+ahash = "0.8.6"
+lol_html = "1.2.0"
+once_cell = "1.18.0"
+slab = "0.4.9"
+
+[dev-dependencies]
+ammonia = "3.3.0"
+criterion = "0.5.1"
+insta = "1.34.0"

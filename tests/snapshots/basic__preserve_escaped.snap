@@ -1,0 +1,8 @@
+---
+source: tests/basic.rs
+expression: "bubble_bath.clean(r#\"\n            <p>Hello world!</p>\n            <font size=\"20\">LARGE</font>\n        \"#).unwrap()"
+---
+
+            <p>Hello world!</p>
+            &lt;font size="20"&gt;LARGE&lt;/font&gt;
+        
