@@ -1,0 +1,7 @@
+---
+source: tests/torture.rs
+expression: "bubble_bath::clean(&input).unwrap()"
+input_file: tests/inputs/malicious_link
+---
+&gt;&lt;&gt;&lt;&gt;
+    <a rel="noopener noreferrer">CLICK ME</a>
