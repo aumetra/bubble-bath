@@ -9,7 +9,7 @@
 
 use ahash::{AHashMap, AHashSet};
 use lol_html::{
-    html_content::{ContentType, Element},
+    html_content::{ContentType, Element, TextChunk},
     DocumentContentHandlers, ElementContentHandlers, HandlerResult, Selector, Settings,
 };
 use once_cell::sync::Lazy;
@@ -41,6 +41,32 @@ static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap(
 #[inline]
 pub fn clean(content: &str) -> Result<String, RewritingError> {
     GLOBAL_BUBBLE_BATH.clean(content)
+}
+
+#[inline]
+fn clean_text(source: &str) -> String {
+    let mut acc = String::with_capacity(source.len());
+
+    for chr in source.chars() {
+        let replacement = match chr {
+            '<' => "&lt;",
+            '>' => "&gt;",
+            '\"' => "&quot;",
+            '\'' => "&apos;",
+            '`' => "&grave;",
+            '/' => "&#47;",
+            '&' => "&amp;",
+            '=' => "&#61;",
+            '\0' => "&#65533;",
+            _ => {
+                acc.push(chr);
+                continue;
+            }
+        };
+
+        acc.push_str(replacement);
+    }
+    acc
 }
 
 /// HTML sanitizer
@@ -210,6 +236,11 @@ impl BubbleBath<'_> {
         Ok(())
     }
 
+    #[inline]
+    fn text_handler(chunk: &mut TextChunk<'_>) {
+        *chunk.as_mut_str() = clean_text(chunk.as_str());
+    }
+
     /// Clean the provided HTML content
     ///
     /// # Errors
@@ -221,7 +252,13 @@ impl BubbleBath<'_> {
     pub fn clean(&self, content: &str) -> Result<String, RewritingError> {
         let unclosed_tags = Rc::new(RefCell::new(Slab::new()));
 
+        let text_handler = |chunk: &mut TextChunk<'_>| {
+            Self::text_handler(chunk);
+            Ok(())
+        };
+
         let document_content_handlers = vec![DocumentContentHandlers {
+            text: Some(Box::new(text_handler)),
             end: Some(Box::new(|document_end| {
                 let unclosed_tags = unclosed_tags.borrow();
                 for (_key, content) in unclosed_tags.iter() {
@@ -237,7 +274,8 @@ impl BubbleBath<'_> {
         let element_content_handlers = vec![(
             Cow::Borrowed(&*SELECT_ALL),
             ElementContentHandlers::default()
-                .element(|element| self.element_handler(element, unclosed_tags.clone())),
+                .element(|element| self.element_handler(element, unclosed_tags.clone()))
+                .text(text_handler),
         )];
 
         lol_html::rewrite_str(
