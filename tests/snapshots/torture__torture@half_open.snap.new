@@ -1,0 +1,7 @@
+---
+source: tests/torture.rs
+assertion_line: 9
+expression: "bubble_bath::clean(&input).unwrap()"
+input_file: tests/inputs/half_open
+---
+<IMG SRC="('XSS')"

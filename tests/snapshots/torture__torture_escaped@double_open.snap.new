@@ -1,0 +1,7 @@
+---
+source: tests/torture.rs
+assertion_line: 22
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/double_open
+---
+<iframe src=http://xss.rocks/scriptlet.html <

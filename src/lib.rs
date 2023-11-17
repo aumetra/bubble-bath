@@ -23,12 +23,6 @@ pub use lol_html::{errors::RewritingError, MemorySettings};
 
 mod macros;
 
-const ANCHOR_TAG_NAME: &str = "a";
-const ANCHOR_HREF_ATTRIBUTE_NAME: &str = "href";
-
-const IMAGE_TAG_NAME: &str = "img";
-const IMAGE_SRC_ATTRIBUTE_NAME: &str = "src";
-
 static GLOBAL_BUBBLE_BATH: Lazy<BubbleBath<'static>> = Lazy::new(BubbleBath::default);
 static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap());
 
@@ -94,6 +88,9 @@ pub struct BubbleBath<'a> {
 
     /// Schemes you want to allow on URLs in anchor tags
     pub allowed_url_schemes: AHashSet<&'a str>,
+
+    /// Clean certain attributes on tags as if they are URLs
+    pub clean_url_attributes: AHashMap<&'a str, AHashSet<&'a str>>,
 
     /// Memory settings for the underlying HTML transformer
     pub memory_settings: MemorySettings,
@@ -210,17 +207,17 @@ impl BubbleBath<'_> {
             return Ok(());
         }
 
-        match tag_name.as_str() {
-            ANCHOR_TAG_NAME => self.clean_link(element, ANCHOR_HREF_ATTRIBUTE_NAME),
-            IMAGE_TAG_NAME => self.clean_link(element, IMAGE_SRC_ATTRIBUTE_NAME),
-            _ => (),
-        }
-
         self.clean_attributes(element, &tag_name);
 
         if let Some(set_attributes) = self.set_tag_attributes.get(tag_name.as_str()) {
             for (name, value) in set_attributes {
                 element.set_attribute(name, value)?;
+            }
+        }
+
+        if let Some(attributes) = self.clean_url_attributes.get(tag_name.as_str()) {
+            for name in attributes {
+                self.clean_link(element, name);
             }
         }
 
@@ -295,20 +292,19 @@ impl BubbleBath<'_> {
                 .text(text_handler),
         )];
 
-        lol_html::rewrite_str(
-            content,
-            Settings {
-                document_content_handlers,
-                element_content_handlers,
-                memory_settings: MemorySettings {
-                    preallocated_parsing_buffer_size: self
-                        .memory_settings
-                        .preallocated_parsing_buffer_size,
-                    max_allowed_memory_usage: self.memory_settings.max_allowed_memory_usage,
-                },
-                ..Settings::default()
+        let settings = Settings {
+            document_content_handlers,
+            element_content_handlers,
+            memory_settings: MemorySettings {
+                preallocated_parsing_buffer_size: self
+                    .memory_settings
+                    .preallocated_parsing_buffer_size,
+                max_allowed_memory_usage: self.memory_settings.max_allowed_memory_usage,
             },
-        )
+            ..Settings::default()
+        };
+
+        lol_html::rewrite_str(content, settings)
     }
 }
 
@@ -412,9 +408,14 @@ impl Default for BubbleBath<'static> {
             "wtai",
             "xmpp",
         ];
+        let clean_url_attributes = hashmap![
+            "a" => hashset!["href"],
+            "img" => hashset!["src"],
+            "link" => hashset!["href"],
+        ];
         let remove_content_tags = hashset!["script", "style"];
         let set_tag_attributes = hashmap![
-            ANCHOR_TAG_NAME => hashmap![
+            "a" => hashmap![
                 "rel" => "noopener noreferrer",
             ],
         ];
@@ -424,6 +425,7 @@ impl Default for BubbleBath<'static> {
             allowed_generic_attributes,
             allowed_tag_attributes,
             allowed_url_schemes,
+            clean_url_attributes,
             memory_settings: MemorySettings::default(),
             preserve_escaped: false,
             remove_content_tags,
