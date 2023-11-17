@@ -1,0 +1,6 @@
+---
+source: tests/torture.rs
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/xss_locator
+---
+javascript:/*--&gt;</title></style></textarea></script></xmp>&lt;svg onload="+/"/+/onmouseover=1/+/[*/[]/+alert(1)//"&gt;

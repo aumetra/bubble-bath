@@ -26,6 +26,9 @@ mod macros;
 const ANCHOR_TAG_NAME: &str = "a";
 const ANCHOR_HREF_ATTRIBUTE_NAME: &str = "href";
 
+const IMAGE_TAG_NAME: &str = "img";
+const IMAGE_SRC_ATTRIBUTE_NAME: &str = "src";
+
 static GLOBAL_BUBBLE_BATH: Lazy<BubbleBath<'static>> = Lazy::new(BubbleBath::default);
 static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap());
 
@@ -140,18 +143,18 @@ impl BubbleBath<'_> {
     }
 
     #[inline]
-    fn clean_link(&self, element: &mut Element<'_, '_>) {
-        let Some(raw_url) = element.get_attribute(ANCHOR_HREF_ATTRIBUTE_NAME) else {
+    fn clean_link(&self, element: &mut Element<'_, '_>, attribute_name: &str) {
+        let Some(raw_url) = element.get_attribute(attribute_name) else {
             return;
         };
 
         let Some((scheme, _rest)) = raw_url.split_once("://") else {
-            element.remove_attribute(ANCHOR_HREF_ATTRIBUTE_NAME);
+            element.remove_attribute(attribute_name);
             return;
         };
 
         if !self.allowed_url_schemes.contains(scheme) {
-            element.remove_attribute(ANCHOR_HREF_ATTRIBUTE_NAME);
+            element.remove_attribute(attribute_name);
         }
     }
 
@@ -206,8 +209,10 @@ impl BubbleBath<'_> {
             return Ok(());
         }
 
-        if tag_name == ANCHOR_TAG_NAME {
-            self.clean_link(element);
+        match tag_name.as_str() {
+            ANCHOR_TAG_NAME => self.clean_link(element, ANCHOR_HREF_ATTRIBUTE_NAME),
+            IMAGE_TAG_NAME => self.clean_link(element, IMAGE_SRC_ATTRIBUTE_NAME),
+            _ => (),
         }
 
         self.clean_attributes(element, &tag_name);
