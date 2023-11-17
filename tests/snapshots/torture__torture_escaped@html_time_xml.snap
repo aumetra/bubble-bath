@@ -1,0 +1,10 @@
+---
+source: tests/torture.rs
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/html_time_xml
+---
+&lt;html&gt;&lt;body&gt;
+<?xml:namespace prefix="t" ns="urn:schemas-microsoft-com:time">
+<?import namespace="t" implementation="#default#time2">
+&lt;t:set attributename="innerHTML" to="XSS&lt;SCRIPT DEFER&gt;alert(" xss")&lt;="" script=""&gt;&amp;quot;&amp;gt;
+&lt;/body&gt;&lt;/html&gt;

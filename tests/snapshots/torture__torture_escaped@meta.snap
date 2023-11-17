@@ -1,0 +1,6 @@
+---
+source: tests/torture.rs
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/meta
+---
+&lt;meta http-equiv="refresh" content="0;url=javascript:alert('XSS');"&gt;

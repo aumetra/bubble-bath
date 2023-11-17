@@ -3,4 +3,4 @@ source: tests/torture.rs
 expression: "bubble_bath::clean(&input).unwrap()"
 input_file: tests/inputs/xss_locator
 ---
-javascript:/*--&gt;</title></style></textarea></script></xmp>
+javascript:&#47;*--&gt;</title></style></textarea></script></xmp>

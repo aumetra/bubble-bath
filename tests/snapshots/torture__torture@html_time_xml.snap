@@ -1,0 +1,10 @@
+---
+source: tests/torture.rs
+expression: "bubble_bath::clean(&input).unwrap()"
+input_file: tests/inputs/html_time_xml
+---
+
+<?xml:namespace prefix="t" ns="urn:schemas-microsoft-com:time">
+<?import namespace="t" implementation="#default#time2">
+&amp;quot;&amp;gt;
+

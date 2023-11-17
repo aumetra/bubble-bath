@@ -1,0 +1,6 @@
+---
+source: tests/torture.rs
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/object
+---
+&lt;object type="text/x-scriptlet" data="http://xss.rocks/scriptlet.html"&gt;&lt;/object&gt;

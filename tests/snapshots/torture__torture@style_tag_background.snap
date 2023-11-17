@@ -1,0 +1,9 @@
+---
+source: tests/torture.rs
+expression: "bubble_bath::clean(&input).unwrap()"
+input_file: tests/inputs/style_tag_background
+---
+
+
+
+
