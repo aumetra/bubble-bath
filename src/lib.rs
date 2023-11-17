@@ -9,7 +9,7 @@
 
 use ahash::{AHashMap, AHashSet};
 use lol_html::{
-    html_content::{ContentType, Element, TextChunk},
+    html_content::{Comment, ContentType, DocumentEnd, Element, TextChunk},
     DocumentContentHandlers, ElementContentHandlers, HandlerResult, Selector, Settings,
 };
 use once_cell::sync::Lazy;
@@ -192,6 +192,7 @@ impl BubbleBath<'_> {
         }
     }
 
+    #[inline]
     fn element_handler(
         &self,
         element: &mut Element<'_, '_>,
@@ -242,6 +243,11 @@ impl BubbleBath<'_> {
     }
 
     #[inline]
+    fn comment_handler(comment: &mut Comment<'_>) {
+        comment.remove();
+    }
+
+    #[inline]
     fn text_handler(chunk: &mut TextChunk<'_>) {
         *chunk.as_mut_str() = clean_text(chunk.as_str());
     }
@@ -257,22 +263,28 @@ impl BubbleBath<'_> {
     pub fn clean(&self, content: &str) -> Result<String, RewritingError> {
         let unclosed_tags = Rc::new(RefCell::new(Slab::new()));
 
+        let comment_handler = |comment: &mut Comment<'_>| {
+            Self::comment_handler(comment);
+            Ok(())
+        };
+        let document_end_handler = |document_end: &mut DocumentEnd<'_>| {
+            let unclosed_tags = unclosed_tags.borrow();
+            for (_key, content) in unclosed_tags.iter() {
+                let formatted = format!("</{content}>");
+                document_end.append(&formatted, ContentType::Html);
+            }
+
+            Ok(())
+        };
         let text_handler = |chunk: &mut TextChunk<'_>| {
             Self::text_handler(chunk);
             Ok(())
         };
 
         let document_content_handlers = vec![DocumentContentHandlers {
+            comments: Some(Box::new(comment_handler)),
             text: Some(Box::new(text_handler)),
-            end: Some(Box::new(|document_end| {
-                let unclosed_tags = unclosed_tags.borrow();
-                for (_key, content) in unclosed_tags.iter() {
-                    let formatted = format!("</{content}>");
-                    document_end.append(&formatted, ContentType::Html);
-                }
-
-                Ok(())
-            })),
+            end: Some(Box::new(document_end_handler)),
             ..DocumentContentHandlers::default()
         }];
 
