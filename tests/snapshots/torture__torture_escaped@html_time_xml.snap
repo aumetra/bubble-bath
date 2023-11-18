@@ -6,5 +6,5 @@ input_file: tests/inputs/html_time_xml
 &lt;html&gt;&lt;body&gt;
 
 
-&lt;t:set attributename="innerHTML" to="XSS&lt;SCRIPT DEFER&gt;alert(" xss")&lt;="" script=""&gt;&amp;quot;&amp;gt;
+&lt;t:set attributename="innerHTML" to="XSS&lt;SCRIPT DEFER&gt;alert(" xss")&lt;="" script=""&gt;&quot;&gt;
 &lt;/body&gt;&lt;/html&gt;

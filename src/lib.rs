@@ -278,18 +278,15 @@ impl BubbleBath<'_> {
             Ok(())
         };
 
-        let document_content_handlers = vec![DocumentContentHandlers {
-            comments: Some(Box::new(comment_handler)),
-            text: Some(Box::new(text_handler)),
-            end: Some(Box::new(document_end_handler)),
-            ..DocumentContentHandlers::default()
-        }];
+        let document_content_handlers = vec![DocumentContentHandlers::default()
+            .comments(comment_handler)
+            .text(text_handler)
+            .end(document_end_handler)];
 
         let element_content_handlers = vec![(
             Cow::Borrowed(&*SELECT_ALL),
             ElementContentHandlers::default()
-                .element(|element| self.element_handler(element, unclosed_tags.clone()))
-                .text(text_handler),
+                .element(|element| self.element_handler(element, unclosed_tags.clone())),
         )];
 
         let settings = Settings {
