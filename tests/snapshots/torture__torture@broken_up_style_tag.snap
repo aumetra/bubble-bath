@@ -1,0 +1,6 @@
+---
+source: tests/torture.rs
+expression: "bubble_bath::clean(&input).unwrap()"
+input_file: tests/inputs/broken_up_style_tag
+---
+

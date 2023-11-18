@@ -4,27 +4,29 @@
 //!
 
 #![forbid(rust_2018_idioms)]
-#![deny(missing_docs)]
+#![deny(missing_docs, unsafe_code)]
 #![warn(clippy::all, clippy::pedantic)]
 
 use ahash::{AHashMap, AHashSet};
 use lol_html::{
-    html_content::{ContentType, Element, TextChunk},
-    DocumentContentHandlers, ElementContentHandlers, HandlerResult, Selector, Settings,
+    errors::RewritingError,
+    html_content::{Comment, ContentType, DocumentEnd, Element, TextChunk},
+    DocumentContentHandlers, ElementContentHandlers, HandlerResult, HtmlRewriter, Selector,
+    Settings,
 };
 use once_cell::sync::Lazy;
 use slab::Slab;
-use std::{borrow::Cow, cell::RefCell, fmt::Write, rc::Rc, str::FromStr};
+use std::{
+    borrow::Cow, cell::RefCell, fmt::Write, iter, rc::Rc, str::FromStr, string::FromUtf8Error,
+};
+use thiserror::Error;
 
 #[doc(hidden)]
 pub use ahash;
 
-pub use lol_html::{errors::RewritingError, MemorySettings};
+pub use lol_html::MemorySettings;
 
 mod macros;
-
-const ANCHOR_TAG_NAME: &str = "a";
-const ANCHOR_HREF_ATTRIBUTE_NAME: &str = "href";
 
 static GLOBAL_BUBBLE_BATH: Lazy<BubbleBath<'static>> = Lazy::new(BubbleBath::default);
 static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap());
@@ -39,7 +41,10 @@ static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap(
 ///
 /// See [`BubbleBath::clean`] documentation
 #[inline]
-pub fn clean(content: &str) -> Result<String, RewritingError> {
+pub fn clean<C>(content: C) -> Result<String, Error>
+where
+    C: AsRef<[u8]>,
+{
     GLOBAL_BUBBLE_BATH.clean(content)
 }
 
@@ -69,6 +74,24 @@ fn clean_text(source: &str) -> String {
     acc
 }
 
+/// Potential errors
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum Error {
+    /// The rewriting of the HTML content failed
+    #[error(transparent)]
+    Rewriting(#[from] RewritingError),
+
+    /// The bytes were not valid UTF8
+    #[error(transparent)]
+    Utf8(#[from] FromUtf8Error),
+
+    /// The bytes were not valid UTF8 (SIMD-accelerated check)
+    #[cfg(feature = "simd")]
+    #[error(transparent)]
+    SimdUtf8(#[from] simdutf8::basic::Utf8Error),
+}
+
 /// HTML sanitizer
 ///
 /// `bubble-bath` is allow-list based, meaning all tags are by default cleaned.
@@ -91,6 +114,9 @@ pub struct BubbleBath<'a> {
 
     /// Schemes you want to allow on URLs in anchor tags
     pub allowed_url_schemes: AHashSet<&'a str>,
+
+    /// Clean certain attributes on tags as if they are URLs
+    pub clean_url_attributes: AHashMap<&'a str, AHashSet<&'a str>>,
 
     /// Memory settings for the underlying HTML transformer
     pub memory_settings: MemorySettings,
@@ -140,18 +166,18 @@ impl BubbleBath<'_> {
     }
 
     #[inline]
-    fn clean_link(&self, element: &mut Element<'_, '_>) {
-        let Some(raw_url) = element.get_attribute(ANCHOR_HREF_ATTRIBUTE_NAME) else {
+    fn clean_link(&self, element: &mut Element<'_, '_>, attribute_name: &str) {
+        let Some(raw_url) = element.get_attribute(attribute_name) else {
             return;
         };
 
         let Some((scheme, _rest)) = raw_url.split_once("://") else {
-            element.remove_attribute(ANCHOR_HREF_ATTRIBUTE_NAME);
+            element.remove_attribute(attribute_name);
             return;
         };
 
         if !self.allowed_url_schemes.contains(scheme) {
-            element.remove_attribute(ANCHOR_HREF_ATTRIBUTE_NAME);
+            element.remove_attribute(attribute_name);
         }
     }
 
@@ -189,6 +215,7 @@ impl BubbleBath<'_> {
         }
     }
 
+    #[inline]
     fn element_handler(
         &self,
         element: &mut Element<'_, '_>,
@@ -206,15 +233,17 @@ impl BubbleBath<'_> {
             return Ok(());
         }
 
-        if tag_name == ANCHOR_TAG_NAME {
-            self.clean_link(element);
-        }
-
         self.clean_attributes(element, &tag_name);
 
         if let Some(set_attributes) = self.set_tag_attributes.get(tag_name.as_str()) {
             for (name, value) in set_attributes {
                 element.set_attribute(name, value)?;
+            }
+        }
+
+        if let Some(attributes) = self.clean_url_attributes.get(tag_name.as_str()) {
+            for name in attributes {
+                self.clean_link(element, name);
             }
         }
 
@@ -237,11 +266,16 @@ impl BubbleBath<'_> {
     }
 
     #[inline]
+    fn comment_handler(comment: &mut Comment<'_>) {
+        comment.remove();
+    }
+
+    #[inline]
     fn text_handler(chunk: &mut TextChunk<'_>) {
         *chunk.as_mut_str() = clean_text(chunk.as_str());
     }
 
-    /// Clean the provided HTML content
+    /// Clean HTML in a streaming fashion
     ///
     /// # Errors
     ///
@@ -249,49 +283,103 @@ impl BubbleBath<'_> {
     /// - The HTML parser ran into an ambiguous state (in this case you should just discard the text instead of trying to fix it)
     /// - The name of an attribute you put into the `set_tag_attributes` hashmap is invalid
     #[inline]
-    pub fn clean(&self, content: &str) -> Result<String, RewritingError> {
+    pub fn clean_streaming<'a, I, S>(&self, input: I, sink: S) -> Result<(), Error>
+    where
+        I: Iterator<Item = &'a [u8]>,
+        S: FnMut(&[u8]),
+    {
         let unclosed_tags = Rc::new(RefCell::new(Slab::new()));
 
+        let comment_handler = |comment: &mut Comment<'_>| {
+            Self::comment_handler(comment);
+            Ok(())
+        };
+        let document_end_handler = |document_end: &mut DocumentEnd<'_>| {
+            let unclosed_tags = unclosed_tags.borrow();
+            for (_key, content) in unclosed_tags.iter() {
+                let formatted = format!("</{content}>");
+                document_end.append(&formatted, ContentType::Html);
+            }
+
+            Ok(())
+        };
         let text_handler = |chunk: &mut TextChunk<'_>| {
             Self::text_handler(chunk);
             Ok(())
         };
 
-        let document_content_handlers = vec![DocumentContentHandlers {
-            text: Some(Box::new(text_handler)),
-            end: Some(Box::new(|document_end| {
-                let unclosed_tags = unclosed_tags.borrow();
-                for (_key, content) in unclosed_tags.iter() {
-                    let formatted = format!("</{content}>");
-                    document_end.append(&formatted, ContentType::Html);
-                }
-
-                Ok(())
-            })),
-            ..DocumentContentHandlers::default()
-        }];
+        let document_content_handlers = vec![DocumentContentHandlers::default()
+            .comments(comment_handler)
+            .text(text_handler)
+            .end(document_end_handler)];
 
         let element_content_handlers = vec![(
             Cow::Borrowed(&*SELECT_ALL),
             ElementContentHandlers::default()
-                .element(|element| self.element_handler(element, unclosed_tags.clone()))
-                .text(text_handler),
+                .element(|element| self.element_handler(element, unclosed_tags.clone())),
         )];
 
-        lol_html::rewrite_str(
-            content,
-            Settings {
-                document_content_handlers,
-                element_content_handlers,
-                memory_settings: MemorySettings {
-                    preallocated_parsing_buffer_size: self
-                        .memory_settings
-                        .preallocated_parsing_buffer_size,
-                    max_allowed_memory_usage: self.memory_settings.max_allowed_memory_usage,
-                },
-                ..Settings::default()
+        let settings = Settings {
+            document_content_handlers,
+            element_content_handlers,
+            memory_settings: MemorySettings {
+                preallocated_parsing_buffer_size: self
+                    .memory_settings
+                    .preallocated_parsing_buffer_size,
+                max_allowed_memory_usage: self.memory_settings.max_allowed_memory_usage,
             },
-        )
+            ..Settings::default()
+        };
+
+        let mut opening_tags: usize = 0;
+        let mut rewriter = HtmlRewriter::new(settings, sink);
+
+        for chunk in input {
+            let tmp_opening_tags = bytecount::count(chunk, b'<');
+            let tmp_closing_tags = bytecount::count(chunk, b'>');
+
+            opening_tags = opening_tags.saturating_add(tmp_opening_tags);
+            opening_tags = opening_tags.saturating_sub(tmp_closing_tags);
+
+            rewriter.write(chunk)?;
+        }
+
+        for _ in 0..opening_tags {
+            rewriter.write(&[b'>'])?;
+        }
+
+        rewriter.end()?;
+
+        Ok(())
+    }
+
+    /// Clean the provided HTML content
+    ///
+    /// # Errors
+    ///
+    /// - The output of the HTML transformer was not valid UTF-8
+    ///
+    /// Check [`Self::clean_streaming`] for additional errors
+    #[inline]
+    pub fn clean<C>(&self, content: C) -> Result<String, Error>
+    where
+        C: AsRef<[u8]>,
+    {
+        let content = content.as_ref();
+        let mut acc = Vec::with_capacity(content.len());
+        self.clean_streaming(iter::once(content), |out| acc.extend_from_slice(out))?;
+
+        #[cfg(feature = "simd")]
+        {
+            simdutf8::basic::from_utf8(&acc)?;
+
+            // SAFETY: The invariant of the data being valid UTF-8 has been checked in the line above
+            #[allow(unsafe_code)]
+            return Ok(unsafe { String::from_utf8_unchecked(acc) });
+        }
+
+        #[cfg(not(feature = "simd"))]
+        Ok(String::from_utf8(acc)?)
     }
 }
 
@@ -395,9 +483,14 @@ impl Default for BubbleBath<'static> {
             "wtai",
             "xmpp",
         ];
+        let clean_url_attributes = hashmap![
+            "a" => hashset!["href"],
+            "img" => hashset!["src"],
+            "link" => hashset!["href"],
+        ];
         let remove_content_tags = hashset!["script", "style"];
         let set_tag_attributes = hashmap![
-            ANCHOR_TAG_NAME => hashmap![
+            "a" => hashmap![
                 "rel" => "noopener noreferrer",
             ],
         ];
@@ -407,6 +500,7 @@ impl Default for BubbleBath<'static> {
             allowed_generic_attributes,
             allowed_tag_attributes,
             allowed_url_schemes,
+            clean_url_attributes,
             memory_settings: MemorySettings::default(),
             preserve_escaped: false,
             remove_content_tags,

@@ -4,17 +4,17 @@ use bubble_bath::*;
 
 #[test]
 fn deeply_nested_allowlisted() {
-    clean(&"<b>".repeat(60_000)).unwrap();
+    clean("<b>".repeat(60_000)).unwrap();
 }
 
 #[test]
 fn deeply_nested_denylisted() {
-    clean(&"<b-b>".repeat(60_000)).unwrap();
+    clean("<b-b>".repeat(60_000)).unwrap();
 }
 
 #[test]
 fn deeply_nested_alternating() {
-    clean(&"<b-b>".repeat(35_000)).unwrap();
+    clean("<b-b>".repeat(35_000)).unwrap();
 }
 
 #[test]

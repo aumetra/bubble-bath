@@ -1,0 +1,7 @@
+---
+source: tests/torture.rs
+expression: "bubble_bath::clean(&input).unwrap()"
+input_file: tests/inputs/xml_data_w_cdata_obfus
+---
+<I><B><IMG></B></I> 
+<SPAN></SPAN></img>

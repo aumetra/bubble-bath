@@ -1,0 +1,6 @@
+---
+source: tests/torture.rs
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/embed_flash_w_xss
+---
+&lt;embed src="http://ha.ckers.org/xss.swf" allowscriptaccess="always"&gt;</EMBED>

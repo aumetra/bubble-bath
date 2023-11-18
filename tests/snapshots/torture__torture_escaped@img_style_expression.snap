@@ -1,0 +1,6 @@
+---
+source: tests/torture.rs
+expression: bubble_bath.clean(&input).unwrap()
+input_file: tests/inputs/img_style_expression
+---
+exp&#47;*<A rel="noopener noreferrer"></a>
