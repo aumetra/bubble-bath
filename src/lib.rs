@@ -258,6 +258,16 @@ impl BubbleBath<'_> {
     /// - The name of an attribute you put into the `set_tag_attributes` hashmap is invalid
     #[inline]
     pub fn clean(&self, content: &str) -> Result<String, RewritingError> {
+        let mut content = content.to_string();
+
+        // Balance out the opening tags
+        let opening_tags = content.bytes().filter(|b| *b == b'<').count();
+        let closing_tags = content.bytes().filter(|b| *b == b'>').count();
+        let closing_tags_iter =
+            std::iter::repeat('>').take(opening_tags.saturating_sub(closing_tags));
+
+        content.extend(closing_tags_iter);
+
         let unclosed_tags = Rc::new(RefCell::new(Slab::new()));
 
         let comment_handler = |comment: &mut Comment<'_>| {
@@ -301,7 +311,7 @@ impl BubbleBath<'_> {
             ..Settings::default()
         };
 
-        lol_html::rewrite_str(content, settings)
+        lol_html::rewrite_str(&content, settings)
     }
 }
 
