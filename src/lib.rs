@@ -4,7 +4,7 @@
 //!
 
 #![forbid(rust_2018_idioms)]
-#![deny(missing_docs)]
+#![deny(missing_docs, unsafe_code)]
 #![warn(clippy::all, clippy::pedantic)]
 
 use ahash::{AHashMap, AHashSet};
@@ -85,6 +85,11 @@ pub enum Error {
     /// The bytes were not valid UTF8
     #[error(transparent)]
     Utf8(#[from] FromUtf8Error),
+
+    /// The bytes were not valid UTF8 (SIMD-accelerated check)
+    #[cfg(feature = "simd")]
+    #[error(transparent)]
+    SimdUtf8(#[from] simdutf8::basic::Utf8Error),
 }
 
 /// HTML sanitizer
@@ -364,6 +369,16 @@ impl BubbleBath<'_> {
         let mut acc = Vec::with_capacity(content.len());
         self.clean_streaming(iter::once(content), |out| acc.extend_from_slice(out))?;
 
+        #[cfg(feature = "simd")]
+        {
+            simdutf8::basic::from_utf8(&acc)?;
+
+            // SAFETY: The invariant of the data being valid UTF-8 has been checked in the line above
+            #[allow(unsafe_code)]
+            return Ok(unsafe { String::from_utf8_unchecked(acc) });
+        }
+
+        #[cfg(not(feature = "simd"))]
         Ok(String::from_utf8(acc)?)
     }
 }

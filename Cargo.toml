@@ -20,11 +20,20 @@ harness = false
 
 [dependencies]
 ahash = "0.8.6"
-bytecount = { version = "0.6.7", features = ["runtime-dispatch-simd"] }
+bytecount = "0.6.7"
 lol_html = "1.2.0"
 once_cell = "1.18.0"
+simdutf8 = { version = "0.1.4", optional = true }
 slab = "0.4.9"
 thiserror = "1.0.50"
+
+[features]
+default = ["simd"]
+simd = [
+    "bytecount/runtime-dispatch-simd",
+    "dep:simdutf8",
+    "simdutf8/aarch64_neon",
+]
 
 [dev-dependencies]
 ammonia = "3.3.0"
