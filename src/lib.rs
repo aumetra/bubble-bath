@@ -9,17 +9,22 @@
 
 use ahash::{AHashMap, AHashSet};
 use lol_html::{
+    errors::RewritingError,
     html_content::{Comment, ContentType, DocumentEnd, Element, TextChunk},
-    DocumentContentHandlers, ElementContentHandlers, HandlerResult, Selector, Settings,
+    DocumentContentHandlers, ElementContentHandlers, HandlerResult, HtmlRewriter, Selector,
+    Settings,
 };
 use once_cell::sync::Lazy;
 use slab::Slab;
-use std::{borrow::Cow, cell::RefCell, fmt::Write, rc::Rc, str::FromStr};
+use std::{
+    borrow::Cow, cell::RefCell, fmt::Write, iter, rc::Rc, str::FromStr, string::FromUtf8Error,
+};
+use thiserror::Error;
 
 #[doc(hidden)]
 pub use ahash;
 
-pub use lol_html::{errors::RewritingError, MemorySettings};
+pub use lol_html::MemorySettings;
 
 mod macros;
 
@@ -36,7 +41,10 @@ static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap(
 ///
 /// See [`BubbleBath::clean`] documentation
 #[inline]
-pub fn clean(content: &str) -> Result<String, RewritingError> {
+pub fn clean<C>(content: C) -> Result<String, Error>
+where
+    C: AsRef<[u8]>,
+{
     GLOBAL_BUBBLE_BATH.clean(content)
 }
 
@@ -64,6 +72,19 @@ fn clean_text(source: &str) -> String {
         acc.push_str(replacement);
     }
     acc
+}
+
+/// Potential errors
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum Error {
+    /// The rewriting of the HTML content failed
+    #[error(transparent)]
+    Rewriting(#[from] RewritingError),
+
+    /// The bytes were not valid UTF8
+    #[error(transparent)]
+    Utf8(#[from] FromUtf8Error),
 }
 
 /// HTML sanitizer
@@ -249,7 +270,7 @@ impl BubbleBath<'_> {
         *chunk.as_mut_str() = clean_text(chunk.as_str());
     }
 
-    /// Clean the provided HTML content
+    /// Clean HTML in a streaming fashion
     ///
     /// # Errors
     ///
@@ -257,17 +278,11 @@ impl BubbleBath<'_> {
     /// - The HTML parser ran into an ambiguous state (in this case you should just discard the text instead of trying to fix it)
     /// - The name of an attribute you put into the `set_tag_attributes` hashmap is invalid
     #[inline]
-    pub fn clean(&self, content: &str) -> Result<String, RewritingError> {
-        let mut content = content.to_string();
-
-        // Balance out the opening tags
-        let opening_tags = content.bytes().filter(|b| *b == b'<').count();
-        let closing_tags = content.bytes().filter(|b| *b == b'>').count();
-        let closing_tags_iter =
-            std::iter::repeat('>').take(opening_tags.saturating_sub(closing_tags));
-
-        content.extend(closing_tags_iter);
-
+    pub fn clean_streaming<'a, I, S>(&self, input: I, sink: S) -> Result<(), Error>
+    where
+        I: Iterator<Item = &'a [u8]>,
+        S: FnMut(&[u8]),
+    {
         let unclosed_tags = Rc::new(RefCell::new(Slab::new()));
 
         let comment_handler = |comment: &mut Comment<'_>| {
@@ -311,7 +326,45 @@ impl BubbleBath<'_> {
             ..Settings::default()
         };
 
-        lol_html::rewrite_str(&content, settings)
+        let mut opening_tags: usize = 0;
+        let mut rewriter = HtmlRewriter::new(settings, sink);
+
+        for chunk in input {
+            let tmp_opening_tags = bytecount::count(chunk, b'<');
+            let tmp_closing_tags = bytecount::count(chunk, b'>');
+
+            opening_tags = opening_tags.saturating_add(tmp_opening_tags);
+            opening_tags = opening_tags.saturating_sub(tmp_closing_tags);
+
+            rewriter.write(chunk)?;
+        }
+
+        for _ in 0..opening_tags {
+            rewriter.write(&[b'>'])?;
+        }
+
+        rewriter.end()?;
+
+        Ok(())
+    }
+
+    /// Clean the provided HTML content
+    ///
+    /// # Errors
+    ///
+    /// - The output of the HTML transformer was not valid UTF-8
+    ///
+    /// Check [`Self::clean_streaming`] for additional errors
+    #[inline]
+    pub fn clean<C>(&self, content: C) -> Result<String, Error>
+    where
+        C: AsRef<[u8]>,
+    {
+        let content = content.as_ref();
+        let mut acc = Vec::with_capacity(content.len());
+        self.clean_streaming(iter::once(content), |out| acc.extend_from_slice(out))?;
+
+        Ok(String::from_utf8(acc)?)
     }
 }
 
