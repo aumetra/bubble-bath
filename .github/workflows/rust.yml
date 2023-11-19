@@ -40,4 +40,4 @@ jobs:
           toolchain: "stable"
       - uses: taiki-e/install-action@cargo-hack
       - uses: Swatinem/rust-cache@v2
-      - run: cargo hack test --feature-powerset
+      - run: cargo hack test --feature-powerset --skip debug_trace

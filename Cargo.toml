@@ -2,8 +2,9 @@
 name = "bubble-bath"
 version = "0.1.0"
 edition = "2021"
-description = "Speedy HTML sanitizer"
+description = "Small and quick HTML sanitizer"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/aumetra/bubble-bath"
 publish = false
 
 [[bench]]
@@ -29,6 +30,9 @@ thiserror = "1.0.50"
 
 [features]
 default = ["simd"]
+# Enables the `lol_html` `debug_trace` feature. Do not use in production!
+debug_trace = ["lol_html/debug_trace"]
+# Enables SIMD acceleration for some operations we have to perform
 simd = [
     "bytecount/runtime-dispatch-simd",
     "dep:simdutf8",

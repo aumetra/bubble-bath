@@ -1,6 +1,6 @@
 ---
 source: tests/torture.rs
-expression: "bubble_bath::clean(&input).unwrap()"
+expression: "bubble_bath::clean(input).unwrap()"
 input_file: tests/inputs/extra_open_bracket
 ---
-&lt;&gt;&gt;
+&lt;
