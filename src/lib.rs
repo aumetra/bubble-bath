@@ -266,12 +266,39 @@ impl BubbleBath<'_> {
     }
 
     #[inline]
-    fn comment_handler(comment: &mut Comment<'_>) {
+    fn count_unclosed_opening_tags<B>(counter: &mut usize, input: B)
+    where
+        B: AsRef<[u8]>,
+    {
+        let bytes = input.as_ref();
+
+        let opening_tags = bytecount::count(bytes, b'<');
+        let closing_tags = bytecount::count(bytes, b'>');
+
+        *counter = counter.saturating_add(opening_tags);
+        *counter = counter.saturating_sub(closing_tags);
+    }
+
+    #[inline]
+    fn subtract_opening_tags<B>(counter: &mut usize, input: B)
+    where
+        B: AsRef<[u8]>,
+    {
+        let mut tmp_counter = 0;
+        Self::count_unclosed_opening_tags(&mut tmp_counter, input);
+
+        *counter = counter.saturating_sub(tmp_counter);
+    }
+
+    #[inline]
+    fn comment_handler(comment: &mut Comment<'_>, opening_tags: &RefCell<usize>) {
+        Self::subtract_opening_tags(&mut opening_tags.borrow_mut(), comment.text());
         comment.remove();
     }
 
     #[inline]
-    fn text_handler(chunk: &mut TextChunk<'_>) {
+    fn text_handler(chunk: &mut TextChunk<'_>, opening_tags: &RefCell<usize>) {
+        Self::subtract_opening_tags(&mut opening_tags.borrow_mut(), chunk.as_str());
         *chunk.as_mut_str() = clean_text(chunk.as_str());
     }
 
@@ -289,9 +316,10 @@ impl BubbleBath<'_> {
         S: FnMut(&[u8]),
     {
         let unclosed_tags = Rc::new(RefCell::new(Slab::new()));
+        let opening_tags = RefCell::new(0);
 
         let comment_handler = |comment: &mut Comment<'_>| {
-            Self::comment_handler(comment);
+            Self::comment_handler(comment, &opening_tags);
             Ok(())
         };
         let document_end_handler = |document_end: &mut DocumentEnd<'_>| {
@@ -304,7 +332,7 @@ impl BubbleBath<'_> {
             Ok(())
         };
         let text_handler = |chunk: &mut TextChunk<'_>| {
-            Self::text_handler(chunk);
+            Self::text_handler(chunk, &opening_tags);
             Ok(())
         };
 
@@ -331,19 +359,15 @@ impl BubbleBath<'_> {
             ..Settings::default()
         };
 
-        let mut opening_tags: usize = 0;
         let mut rewriter = HtmlRewriter::new(settings, sink);
 
         for chunk in input {
-            let tmp_opening_tags = bytecount::count(chunk, b'<');
-            let tmp_closing_tags = bytecount::count(chunk, b'>');
-
-            opening_tags = opening_tags.saturating_add(tmp_opening_tags);
-            opening_tags = opening_tags.saturating_sub(tmp_closing_tags);
+            Self::count_unclosed_opening_tags(&mut opening_tags.borrow_mut(), chunk);
 
             rewriter.write(chunk)?;
         }
 
+        let opening_tags = *opening_tags.borrow();
         for _ in 0..opening_tags {
             rewriter.write(&[b'>'])?;
         }

@@ -18,6 +18,13 @@ fn deeply_nested_alternating() {
 }
 
 #[test]
+fn included_angles() {
+    let fragment = "1 < 2";
+    let result = clean(fragment).unwrap();
+    assert_eq!(result, "1 &lt; 2");
+}
+
+#[test]
 fn remove_script() {
     let fragment = "an <script>evil()</script> example";
     let result = clean(fragment).unwrap();
