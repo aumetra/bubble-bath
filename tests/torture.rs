@@ -6,7 +6,7 @@ use std::fs;
 fn torture() {
     insta::glob!("inputs/*", |path| {
         let input = fs::read_to_string(path).unwrap();
-        assert_snapshot!(bubble_bath::clean(input).unwrap());
+        assert_snapshot!(bubble_bath::clean(&input).unwrap());
     });
 }
 
@@ -19,6 +19,6 @@ fn torture_escaped() {
             ..BubbleBath::default()
         };
 
-        assert_snapshot!(bubble_bath.clean(input).unwrap());
+        assert_snapshot!(bubble_bath.clean(&input).unwrap());
     });
 }

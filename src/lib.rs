@@ -16,9 +16,7 @@ use lol_html::{
 };
 use once_cell::sync::Lazy;
 use slab::Slab;
-use std::{
-    borrow::Cow, cell::RefCell, fmt::Write, iter, rc::Rc, str::FromStr, string::FromUtf8Error,
-};
+use std::{borrow::Cow, cell::RefCell, fmt::Write, iter, rc::Rc, str::FromStr};
 use thiserror::Error;
 
 #[doc(hidden)]
@@ -41,10 +39,7 @@ static SELECT_ALL: Lazy<Selector> = Lazy::new(|| Selector::from_str("*").unwrap(
 ///
 /// See [`BubbleBath::clean`] documentation
 #[inline]
-pub fn clean<C>(content: C) -> Result<String, Error>
-where
-    C: AsRef<[u8]>,
-{
+pub fn clean(content: &str) -> Result<String, Error> {
     GLOBAL_BUBBLE_BATH.clean(content)
 }
 
@@ -81,15 +76,6 @@ pub enum Error {
     /// The rewriting of the HTML content failed
     #[error(transparent)]
     Rewriting(#[from] RewritingError),
-
-    /// The bytes were not valid UTF8
-    #[error(transparent)]
-    Utf8(#[from] FromUtf8Error),
-
-    /// The bytes were not valid UTF8 (SIMD-accelerated check)
-    #[cfg(feature = "simd")]
-    #[error(transparent)]
-    SimdUtf8(#[from] simdutf8::basic::Utf8Error),
 }
 
 /// HTML sanitizer
@@ -385,25 +371,22 @@ impl BubbleBath<'_> {
     ///
     /// Check [`Self::clean_streaming`] for additional errors
     #[inline]
-    pub fn clean<C>(&self, content: C) -> Result<String, Error>
-    where
-        C: AsRef<[u8]>,
-    {
-        let content = content.as_ref();
+    pub fn clean(&self, content: &str) -> Result<String, Error> {
         let mut acc = Vec::with_capacity(content.len());
-        self.clean_streaming(iter::once(content), |out| acc.extend_from_slice(out))?;
+        self.clean_streaming(iter::once(content.as_bytes()), |out| {
+            acc.extend_from_slice(out);
+        })?;
 
-        #[cfg(feature = "simd")]
-        {
-            simdutf8::basic::from_utf8(&acc)?;
-
-            // SAFETY: The invariant of the data being valid UTF-8 has been checked in the line above
-            #[allow(unsafe_code)]
-            return Ok(unsafe { String::from_utf8_unchecked(acc) });
-        }
-
-        #[cfg(not(feature = "simd"))]
-        Ok(String::from_utf8(acc)?)
+        // SAFETY: Since the input is a string slice, we can be confident that it is valid UTF-8.
+        // We also buffered the entirety of the output into the accumulator.
+        //
+        // According to [this comment](https://github.com/cloudflare/lol-html/issues/200#issuecomment-1829731640),
+        // `lol_html` always outputs the data in the same encoding it was supplied in.
+        //
+        // Meaning, since we have the entire output accumulated and the source encoding is valid UTF-8,
+        // this byte vector is, indeed, valid UTF-8.
+        #[allow(unsafe_code)]
+        Ok(unsafe { String::from_utf8_unchecked(acc) })
     }
 }
 
