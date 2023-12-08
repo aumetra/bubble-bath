@@ -23,8 +23,7 @@ harness = false
 ahash = "0.8.6"
 bytecount = "0.6.7"
 lol_html = "1.2.0"
-once_cell = "1.18.0"
-simdutf8 = { version = "0.1.4", optional = true }
+once_cell = "1.19.0"
 slab = "0.4.9"
 thiserror = "1.0.50"
 
@@ -33,11 +32,7 @@ default = ["simd"]
 # Enables the `lol_html` `debug_trace` feature. Do not use in production!
 debug_trace = ["lol_html/debug_trace"]
 # Enables SIMD acceleration for some operations we have to perform
-simd = [
-    "bytecount/runtime-dispatch-simd",
-    "dep:simdutf8",
-    "simdutf8/aarch64_neon",
-]
+simd = ["bytecount/runtime-dispatch-simd"]
 
 [dev-dependencies]
 ammonia = "3.3.0"
