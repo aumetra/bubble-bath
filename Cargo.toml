@@ -5,7 +5,11 @@ edition = "2021"
 description = "Small and quick HTML sanitizer"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aumetra/bubble-bath"
-publish = false
+
+# crates.io-relevant fields
+categories = ["text-processing", "web-programming"]
+exclude = [".github", ".vscode", "benches", "examples", "fuzz", "tests"]
+keywords = ["html", "sanitization", "security", "xss"]
 
 [[bench]]
 name = "ammonia_intro"
