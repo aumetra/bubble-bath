@@ -1,6 +1,6 @@
 [package]
 name = "bubble-bath"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Small and quick HTML sanitizer"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ repository = "https://github.com/aumetra/bubble-bath"
 
 # crates.io-relevant fields
 categories = ["text-processing", "web-programming"]
-exclude = [".github", ".vscode", "benches", "examples", "fuzz", "tests"]
+exclude = [".github", ".vscode", "examples", "fuzz", "tests"]
 keywords = ["html", "sanitization", "security", "xss"]
 
 [[bench]]
