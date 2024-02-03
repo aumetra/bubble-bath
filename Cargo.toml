@@ -8,7 +8,7 @@ repository = "https://github.com/aumetra/bubble-bath"
 
 # crates.io-relevant fields
 categories = ["text-processing", "web-programming"]
-exclude = [".github", ".vscode", "examples", "fuzz", "tests"]
+exclude = [".github", ".vscode", "benches/*.txt", "examples", "fuzz", "tests"]
 keywords = ["html", "sanitization", "security", "xss"]
 
 [[bench]]

@@ -1,17 +1,18 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-const RUSTLANG_WEBSITE: &str = include_str!("rustlang-website.txt");
+use std::fs;
 
 fn rustlang_website_bench(c: &mut Criterion) {
+    let rustlang_website = fs::read_to_string("rustlang-website.txt").unwrap();
+
     c.bench_function("bubble_bath_rustlang_website", |b| {
         b.iter(|| {
-            let _ = bubble_bath::clean(black_box(RUSTLANG_WEBSITE)).unwrap();
+            let _ = bubble_bath::clean(black_box(&rustlang_website)).unwrap();
         })
     });
 
     c.bench_function("ammonia_rustlang_website", |b| {
         b.iter(|| {
-            let _ = ammonia::clean(black_box(RUSTLANG_WEBSITE));
+            let _ = ammonia::clean(black_box(&rustlang_website));
         })
     });
 }
