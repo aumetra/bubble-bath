@@ -24,7 +24,7 @@ name = "wikipedia"
 harness = false
 
 [dependencies]
-ahash = "0.8.9"
+ahash = "0.8.10"
 bytecount = "0.6.7"
 lol_html = "1.2.0"
 once_cell = "1.19.0"
