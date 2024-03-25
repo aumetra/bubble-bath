@@ -39,6 +39,6 @@ debug_trace = ["lol_html/debug_trace"]
 simd = ["bytecount/runtime-dispatch-simd"]
 
 [dev-dependencies]
-ammonia = "3.3.0"
+ammonia = "4.0.0"
 criterion = "0.5.1"
 insta = { version = "1.36.1", features = ["glob"] }
