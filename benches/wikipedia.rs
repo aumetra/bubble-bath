@@ -1,8 +1,16 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::fs;
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn wikipedia_bench(c: &mut Criterion) {
-    let wikipedia = fs::read_to_string("wikipedia.txt").unwrap();
+    let wikipedia = fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/benches/",
+        "wikipedia.txt",
+    ))
+    .unwrap();
 
     c.bench_function("bubble_bath_wikipedia", |b| {
         b.iter(|| {

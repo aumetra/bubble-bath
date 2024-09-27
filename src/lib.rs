@@ -7,7 +7,7 @@
 #![deny(missing_docs, unsafe_code)]
 #![warn(clippy::all, clippy::pedantic)]
 
-use ahash::{AHashMap, AHashSet};
+use ahash::{HashMap, HashSet};
 use lol_html::{
     errors::RewritingError,
     html_content::{Comment, ContentType, DocumentEnd, Element, TextChunk},
@@ -18,9 +18,6 @@ use once_cell::sync::Lazy;
 use slab::Slab;
 use std::{borrow::Cow, cell::RefCell, fmt::Write, iter, rc::Rc, str::FromStr};
 use thiserror::Error;
-
-#[doc(hidden)]
-pub use ahash;
 
 pub use lol_html::MemorySettings;
 
@@ -90,19 +87,19 @@ pub enum Error {
 /// - Only absolute URLs (i.e. URLs with a scheme) are allowed. Relative links are discarded
 pub struct BubbleBath<'a> {
     /// Attributes you want to keep on all tags
-    pub allowed_generic_attributes: AHashSet<&'a str>,
+    pub allowed_generic_attributes: HashSet<&'a str>,
 
     /// Tags you want to keep
-    pub allowed_tags: AHashSet<&'a str>,
+    pub allowed_tags: HashSet<&'a str>,
 
     /// Attributes you want to keep on a per-tag basis
-    pub allowed_tag_attributes: AHashMap<&'a str, AHashSet<&'a str>>,
+    pub allowed_tag_attributes: HashMap<&'a str, HashSet<&'a str>>,
 
     /// Schemes you want to allow on URLs in anchor tags
-    pub allowed_url_schemes: AHashSet<&'a str>,
+    pub allowed_url_schemes: HashSet<&'a str>,
 
     /// Clean certain attributes on tags as if they are URLs
-    pub clean_url_attributes: AHashMap<&'a str, AHashSet<&'a str>>,
+    pub clean_url_attributes: HashMap<&'a str, HashSet<&'a str>>,
 
     /// Memory settings for the underlying HTML transformer
     pub memory_settings: MemorySettings,
@@ -115,10 +112,10 @@ pub struct BubbleBath<'a> {
     /// By default `bubble-bath` preserves the content of tags
     ///
     /// **Note**: Remember to put `<script>` and `<style>` tags in here (unless you 100% know what you are doing) since they are really damn evil!
-    pub remove_content_tags: AHashSet<&'a str>,
+    pub remove_content_tags: HashSet<&'a str>,
 
     /// Attributes you want to set on a per-tag basis
-    pub set_tag_attributes: AHashMap<&'a str, AHashMap<&'a str, &'a str>>,
+    pub set_tag_attributes: HashMap<&'a str, HashMap<&'a str, &'a str>>,
 }
 
 impl BubbleBath<'_> {
@@ -327,10 +324,21 @@ impl BubbleBath<'_> {
             .text(text_handler)
             .end(document_end_handler)];
 
+        // Don't ask me why we need this. This is dumb and I don't like it.
+        // It's required so the compiler recognizes that our closure, indeed, implements the handler trait.
+        #[inline(always)]
+        fn bounds_assertion<T>(uwu: T) -> T
+        where
+            T: FnMut(&mut Element<'_, '_>) -> HandlerResult,
+        {
+            uwu
+        }
+
         let element_content_handlers = vec![(
             Cow::Borrowed(&*SELECT_ALL),
-            ElementContentHandlers::default()
-                .element(|element| self.element_handler(element, unclosed_tags.clone())),
+            ElementContentHandlers::default().element(bounds_assertion(|element| {
+                self.element_handler(element, unclosed_tags.clone())
+            })),
         )];
 
         let settings = Settings {

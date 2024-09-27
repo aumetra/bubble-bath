@@ -2,7 +2,12 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::fs;
 
 fn rustlang_website_bench(c: &mut Criterion) {
-    let rustlang_website = fs::read_to_string("rustlang-website.txt").unwrap();
+    let rustlang_website = fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/benches/",
+        "rustlang-website.txt",
+    ))
+    .unwrap();
 
     c.bench_function("bubble_bath_rustlang_website", |b| {
         b.iter(|| {

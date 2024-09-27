@@ -1,4 +1,4 @@
-/// Handy macro to construct a hashmap using the [`ahash`] hasher
+/// Handy macro to construct a hashmap
 ///
 /// Example:
 ///
@@ -14,7 +14,7 @@
 #[macro_export]
 macro_rules! hashmap {
     ($($key:expr => $value:expr),*$(,)?) => {{
-        let mut hashmap = $crate::ahash::AHashMap::new();
+        let mut hashmap = ::std::collections::HashMap::default();
 
         $(
             let _ = hashmap.insert($key, $value);
@@ -24,7 +24,7 @@ macro_rules! hashmap {
     }}
 }
 
-/// Handy macro to construct a hashset using the [`ahash`] hasher
+/// Handy macro to construct a hashset
 ///
 /// Example:
 ///
@@ -38,7 +38,7 @@ macro_rules! hashmap {
 #[macro_export]
 macro_rules! hashset {
     ($($value:expr),*$(,)?) => {{
-        let mut hashset = $crate::ahash::AHashSet::new();
+        let mut hashset = ::std::collections::HashSet::default();
 
         $(
             let _ = hashset.insert($value);
