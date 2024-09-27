@@ -1,29 +1,32 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+#![allow(missing_docs)]
+
+use divan::black_box;
 use std::fs;
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-fn wikipedia_bench(c: &mut Criterion) {
-    let wikipedia = fs::read_to_string(concat!(
+fn read_input() -> String {
+    fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/benches/",
         "wikipedia.txt",
     ))
-    .unwrap();
-
-    c.bench_function("bubble_bath_wikipedia", |b| {
-        b.iter(|| {
-            let _ = bubble_bath::clean(black_box(&wikipedia)).unwrap();
-        })
-    });
-
-    c.bench_function("ammonia_wikipedia", |b| {
-        b.iter(|| {
-            let _ = ammonia::clean(black_box(&wikipedia));
-        })
-    });
+    .unwrap()
 }
 
-criterion_group!(wikipedia, wikipedia_bench);
-criterion_main!(wikipedia);
+#[divan::bench]
+fn bubble_bath(bencher: divan::Bencher<'_, '_>) {
+    let input = read_input();
+    bencher.bench(|| bubble_bath::clean(black_box(&input)).unwrap());
+}
+
+#[divan::bench]
+fn ammonia(bencher: divan::Bencher<'_, '_>) {
+    let input = read_input();
+    bencher.bench(|| ammonia::clean(black_box(&input)));
+}
+
+fn main() {
+    divan::main();
+}

@@ -3,10 +3,6 @@
 //! For an entry point to the library, check the docs of [`BubbleBath`] or [`clean`]
 //!
 
-#![forbid(rust_2018_idioms)]
-#![deny(missing_docs, unsafe_code)]
-#![warn(clippy::all, clippy::pedantic)]
-
 use ahash::{HashMap, HashSet};
 use lol_html::{
     errors::RewritingError,

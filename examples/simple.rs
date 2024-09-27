@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use bubble_bath::BubbleBath;
 use std::{
     error::Error,
