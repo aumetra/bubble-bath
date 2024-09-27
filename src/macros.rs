@@ -4,7 +4,8 @@
 ///
 /// ```rust
 /// # use bubble_bath::hashmap;
-/// hashmap! [
+/// # use std::collections::HashMap;
+/// let _: HashMap<_, HashMap<_, _>> = hashmap! [
 ///     "key" => hashmap![],
 ///     "key2" => hashmap![
 ///         "inner key" => "inner value",
@@ -30,7 +31,8 @@ macro_rules! hashmap {
 ///
 /// ```rust
 /// # use bubble_bath::hashset;
-/// hashset![
+/// # use std::collections::HashSet;
+/// let _ : HashSet<_> = hashset![
 ///     "key1",
 ///     "key2",
 ///     "key3",
