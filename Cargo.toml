@@ -41,7 +41,7 @@ simd = ["bytecount/runtime-dispatch-simd"]
 [dev-dependencies]
 ammonia = "4.0.0"
 divan = "0.1.14"
-insta = { version = "1.40.0", features = ["glob"] }
+insta = { version = "1.41.1", features = ["glob"] }
 mimalloc = "0.1.43"
 
 [lints.clippy]
